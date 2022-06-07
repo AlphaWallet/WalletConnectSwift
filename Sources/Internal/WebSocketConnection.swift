@@ -15,10 +15,6 @@ class WebSocketConnection {
     private let onConnect: (() -> Void)?
     private let onDisconnect: ((Error?) -> Void)?
     private let onTextReceive: ((String) -> Void)?
-    // needed to keep connection alive
-    private var pingTimer: Timer?
-    // TODO: make injectable on server creation
-    private let pingInterval: TimeInterval = 30
     
     private var requestSerializer: RequestSerializer = JSONRPCSerializer()
     private var responseSerializer: ResponseSerializer = JSONRPCSerializer()
@@ -44,10 +40,6 @@ class WebSocketConnection {
         self.socket.callbackQueue = serialCallbackQueue
         self.socket.delegate = self
     }
-    
-    deinit {
-        self.pingTimer?.invalidate()
-    }
  
     func open() {
         self.socket.connect()
@@ -55,7 +47,6 @@ class WebSocketConnection {
     
     func close(closeCode: UInt16 = CloseCode.normal.rawValue) {
         self.socket.disconnect(closeCode: closeCode)
-        self.pingTimer?.invalidate()
     }
     
     func send(_ text: String) {
@@ -79,13 +70,6 @@ extension WebSocketConnection: WebSocketDelegate {
     func didReceive(event: WebSocketEvent, client: WebSocket) {
         switch event {
         case .connected:
-            DispatchQueue.main.sync {
-                self.pingTimer = Timer.scheduledTimer(withTimeInterval: self.pingInterval,
-                                                      repeats: true) { [weak self] _ in
-                    LogService.shared.log("WC: ==> ping")
-                    self?.socket.write(ping: Data())
-                }
-            }
             LogService.shared.log("WC: <== connected")
             isConnected = true
             onConnect?()
@@ -116,7 +100,6 @@ extension WebSocketConnection: WebSocketDelegate {
             LogService.shared.log("^------ with error: \(error)")
         }
         self.isConnected = false
-        self.pingTimer?.invalidate()
         onDisconnect?(error)
     }
 }
