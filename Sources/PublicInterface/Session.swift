@@ -30,6 +30,19 @@ public struct Session: Codable {
             self.approved = approved
         }
 
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            peerId = try container.decode(String.self, forKey: .peerId)
+            peerMeta = try container.decode(ClientMeta.self, forKey: .peerMeta)
+            if let _chainId = try? container.decodeIfPresent(Int.self, forKey: .chainId) {
+                chainId = _chainId
+            } else {
+                chainId = try? container.decodeIfPresent(String.self, forKey: .chainId).flatMap { Int($0) }
+            }
+
+            approved = try container.decodeIfPresent(Bool.self, forKey: .approved)
+        }
+
         func with(approved: Bool) -> DAppInfo {
             return DAppInfo(peerId: self.peerId,
                             peerMeta: self.peerMeta,
